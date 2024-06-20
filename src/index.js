@@ -43,6 +43,7 @@ async function main(command, ...args) {
 }
 
 async function commandDecrypt(config) {
+  validateConfig(config);
   const fileList = await config.getFileListFn(config);
 
   for (const filePath of fileList) {
@@ -56,6 +57,7 @@ async function commandDecrypt(config) {
 }
 
 async function commandEncrypt(config) {
+  validateConfig(config);
   const fileList = await config.getFileListFn(config);
 
   for (const filePath of fileList) {
@@ -334,6 +336,20 @@ function resolveDecryptedPath(filePath) {
 
 function sha256(key) {
   return crypto.createHash('sha256').update(key).digest();
+}
+
+function validateConfig(config) {
+  if (!config.key?.trim()) {
+    throw new SecryptError('Key is required');
+  }
+
+  if (!config.files?.length) {
+    throw new SecryptError('Files are not configured');
+  }
+
+  if (!config.environment) {
+    throw new SecryptError('Environment is not configured');
+  }
 }
 
 async function writeKeyFile(keyPath, keys) {
