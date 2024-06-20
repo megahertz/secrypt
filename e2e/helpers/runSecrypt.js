@@ -7,7 +7,7 @@ module.exports = runSecrypt;
 
 async function runSecrypt(args, options) {
   const child = childProcess.spawn(
-    'node',
+    process.argv[0],
     [path.join(__dirname, '../../src/index.js'), ...args],
     {
       cwd: typeof options === 'string' ? options : options?.cwd,
