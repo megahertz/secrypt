@@ -8,7 +8,8 @@ It is designed to be fast, easy to use and highly secure.
 Key features:
 
 - Encrypted data is saved close to the original file with `.enc` extension.
-- AES-256-CBC is used for encryption
+- AES-256-CBC is used for encryption and PBKDF2 SHA-512 to derive the encryption 
+  key
 - Pretty small, a bit less than 400 lines of code. So it can be analyzed easily.
 - It can be used as a standalone 
   [script](https://raw.githubusercontent.com/megahertz/secrypt/master/src/index.js)

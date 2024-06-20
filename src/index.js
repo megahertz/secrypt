@@ -99,7 +99,7 @@ async function commandInit(config) {
 
   await writeKeyFile(keyPath, {
     [config.environment]: config.key
-      || crypto.randomBytes(16).toString('base64').replace(/\W/g, ''),
+      || crypto.randomBytes(24).toString('base64').replace(/\W/g, ''),
   });
 
   logInfo(
@@ -133,13 +133,14 @@ async function commandHelp() {
 }
 
 async function decryptFile(filePath, { config }) {
-  const header = await readFirstBytes(filePath, 32);
-  const iv = header.slice(16, 32);
-  const key = sha256(config.key);
+  const header = await readFirstBytes(filePath, 64);
+  const salt = header.subarray(16, 48);
+  const iv = header.subarray(48, 64);
+  const key = crypto.pbkdf2Sync(config.key, salt, 100_000, 32, 'sha512');
   const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
 
   const decryptedPath = config.resolveDecryptedPathFn(filePath);
-  const readStream = fs.createReadStream(filePath, { start: 32 });
+  const readStream = fs.createReadStream(filePath, { start: header.length });
   const writeStream = fs.createWriteStream(decryptedPath);
 
   await stream.promises.pipeline(readStream, decipher, writeStream);
@@ -154,16 +155,22 @@ async function decryptFile(filePath, { config }) {
 }
 
 async function encryptFile(filePath, { config }) {
+  const salt = crypto.randomBytes(32);
   const iv = crypto.randomBytes(16);
-  const key = sha256(config.key);
+  const key = crypto.pbkdf2Sync(config.key, salt, 100_000, 32, 'sha512');
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
 
   const encryptedPath = config.resolveEncryptedPathFn(filePath);
   const readStream = fs.createReadStream(filePath);
   const writeStream = fs.createWriteStream(encryptedPath);
 
-  // 0-1: format version, 1-16: reserved, 16-32: iv
-  const header = Buffer.concat([Buffer.alloc(1, 0), Buffer.alloc(15, 0), iv]);
+  // 0-1: format version, 1-16: reserved, 16-48: salt, 48-64: iv
+  const header = Buffer.concat([
+    Buffer.alloc(1, 0),
+    Buffer.alloc(15, 0),
+    salt,
+    iv,
+  ]);
   await new Promise((resolve, reject) => {
     writeStream.write(header, (e) => (e ? reject(e) : resolve()));
   });
@@ -332,10 +339,6 @@ function resoleEncryptedPath(filePath) {
 
 function resolveDecryptedPath(filePath) {
   return filePath.replace(/\.enc$/, '');
-}
-
-function sha256(key) {
-  return crypto.createHash('sha256').update(key).digest();
 }
 
 function validateConfig(config) {
