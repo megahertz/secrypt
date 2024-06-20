@@ -1,0 +1,27 @@
+name: Tests
+
+on: push
+
+env:
+  CI: 1
+
+jobs:
+  main:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: windows-latest
+          - os: macos-latest
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '16.x'
+
+      - run: npm install
+      - run: npm run test:full

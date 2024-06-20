@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "lib": ["esnext"],
+    "noEmit": true,
+    "noImplicitReturns": true,
+    "skipLibCheck": false,
+    "strict": true
+  },
+  "include": [
+    "./src/index.d.ts"
+  ]
+}

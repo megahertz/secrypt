@@ -1,0 +1,47 @@
+{
+  "name": "secrypt",
+  "version": "0.0.1",
+  "description": "Tool for keeping repository secrets encrypted",
+  "main": "src/index.js",
+  "typings": "src/index.d.ts",
+  "bin": {
+    "secrypt": "src/index.js"
+  },
+  "scripts": {
+    "lint": "eslint src e2e && tsc",
+    "test": "vitest run src",
+    "test:e2e": "vitest run e2e",
+    "test:full": "npm test && npm run lint && npm run test:e2e",
+    "postversion": "git push && git push --tags",
+    "prepack": "npm run test:full",
+    "preversion": "npm run test:full"
+  },
+  "repository": "megahertz/secrypt",
+  "files": [
+    "src/*",
+    "!**/__specs__"
+  ],
+  "keywords": [
+    "credentials",
+    "decrypt",
+    "encrypt",
+    "environment",
+    "repository",
+    "secrets"
+  ],
+  "author": "Alexey Prokhorov",
+  "license": "MIT",
+  "bugs": "https://github.com/megahertz/secrypt/issues",
+  "homepage": "https://github.com/megahertz/secrypt#readme",
+  "engines": {
+    "node": ">=16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.37",
+    "eslint": "^8.57.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.29.1",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  }
+}
