@@ -29,7 +29,7 @@ widely used approach at least in Ruby on Rails and in Fastlane.
 ### TLDR
 ```
 secrypt init
-echo '{"dev": {"secrets": [".env.dev"] } }' > secrypt.config.json
+echo '{"dev": {"files": [".env.dev"] } }' > secrypt.config.json
 secrypt encrypt
 
 echo secrypt.keys >> .gitignore
@@ -49,7 +49,7 @@ git commit -m 'chore: Add encrypted secrets'
 ```json
 {
   "dev": {
-    "secrets": [
+    "files": [
       "secrets.json"
     ]
   }
@@ -93,12 +93,12 @@ Each environment is configured separately:
 ```json
 {
   "dev": {
-    "secrets": [
+    "files": [
       ".env.dev"
     ]
   },
   "prod": {
-    "secrets": [
+    "files": [
       ".env.prod"
     ]
   }
