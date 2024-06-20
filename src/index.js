@@ -68,6 +68,11 @@ async function commandEncrypt(config) {
 }
 
 async function commandInit(config) {
+  const packageJson = read(path.join(config.prefix, 'package.json'));
+  if (packageJson?.secrypt) {
+    throw new SecryptError('secrypt is already has config in package.json');
+  }
+
   let configPath = path.join(config.prefix, 'secrypt.config.js');
   if (!fs.existsSync(configPath)) {
     configPath = path.join(config.prefix, 'secrypt.config.json');
@@ -77,14 +82,12 @@ async function commandInit(config) {
   }
 
   if (configPath) {
-    logError(`Config file already exists: ${configPath}`);
-    return;
+    throw new SecryptError(`Config file already exists: ${configPath}`);
   }
 
   const keyPath = path.join(config.prefix, 'secrypt.keys');
   if (fs.existsSync(keyPath)) {
-    logError(`Key already exists: ${keyPath}`);
-    return;
+    throw new SecryptError(`Key already exists: ${keyPath}`);
   }
 
   configPath = path.join(config.prefix, 'secrypt.config.json');
@@ -116,6 +119,7 @@ async function commandHelp() {
     '  init',
     '',
     'Options:',
+    '  -c, --config FILE      Config file path (default: secrypt.config.json)',
     '  -e, --environment ENV  Environment name (default: dev)',
     '  -p, --prefix PATH      Change current working directory',
     '',
@@ -201,7 +205,7 @@ async function getConfig({
   env = process.env,
   cwd = process.cwd(),
 } = {}) {
-  const aliases = { e: 'environment', p: 'prefix' };
+  const aliases = { c: 'config', e: 'environment', p: 'prefix' };
 
   const cli = { params: [] };
   let skipNext = false;
@@ -231,11 +235,14 @@ async function getConfig({
     || findUp('package.json', cwd)
     || cwd;
 
-  const fileConfig = read(path.join(prefix, 'secrypt.config.js'))
+  const fileConfig = (cli.config && read(path.resolve(prefix, cli.config)))
+    || read(path.join(prefix, 'secrypt.config.js'))
     || read(path.join(prefix, 'secrypt.config.json'))
+    || read(path.join(prefix, 'package.json'), {}).secrypt
     || {};
 
-  const keys = await readKeyFile(path.join(prefix, 'secrypt.keys')) || {};
+  const keyFilePath = fileConfig[environment]?.keysFile || 'secrypt.keys';
+  const keys = await readKeyFile(path.join(prefix, keyFilePath)) || {};
 
   return {
     decryptFn: decryptFile,

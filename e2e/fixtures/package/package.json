@@ -1,0 +1,10 @@
+{
+  "name": "package",
+  "private": true,
+  "secrypt": {
+    "dev": {
+      "files": [".env.dev"],
+      "keysFile": ".keys"
+    }
+  }
+}

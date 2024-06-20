@@ -72,6 +72,26 @@ describe('Secrypt', () => {
         prefix: projectPath,
       });
     });
+
+    it('loads config from package.json', async () => {
+      const cwd = path.join(fixtures, 'package');
+      const config = await getConfig({ cwd, env: {} });
+
+      expect(config).toMatchObject({
+        files: ['.env.dev'],
+        key: 'custom keys file',
+      });
+    });
+
+    it('loads config from custom file', async () => {
+      const cwd = path.join(fixtures, 'custom');
+      const config = await getConfig({ args: ['-c', 'sc.json'], cwd, env: {} });
+
+      expect(config).toMatchObject({
+        files: ['.env.dev'],
+        key: 'custom config path',
+      });
+    });
   });
 
   describe('getFileList', () => {

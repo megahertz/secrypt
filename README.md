@@ -9,7 +9,7 @@ Key features:
 
 - Encrypted data is saved close to the original file with `.enc` extension.
 - AES-256-CBC is used for encryption
-- Pretty small, a bit more than 300 lines of code. So it can be analyzed easily.
+- Pretty small, a bit less than 400 lines of code. So it can be analyzed easily.
 - It can be used as a standalone 
   [script](https://raw.githubusercontent.com/megahertz/secrypt/master/src/index.js)
   . It's helpful when you don't trust a third-party package to manage your
@@ -42,7 +42,7 @@ git commit -m 'chore: Add encrypted secrets'
 
 1. Run `secrypt init` command that creates two files:
 - default `secrypt.config.json` config
-- a random key for the dev (default) environment in the `secrypt.key` file.
+- a random key for the dev (default) environment in the `secrypt.keys` file.
 
 2. Add your secret file list to the `secrypt.config.json`:
 
@@ -58,11 +58,11 @@ git commit -m 'chore: Add encrypted secrets'
 
 3. Run `secrypt encrypt` to encrypt all files from the list.
 
-Remember to add `secrypt.key` and `secrets.json` to `.gitignore`.
+Remember to add `secrypt.keys` and `secrets.json` to `.gitignore`.
 
 To decrypt secrets, just run `secrypt decrypt`.
 
-By default, a secret key is stored in the `secrypt.key` file, but it can also
+By default, a secret key is stored in the `secrypt.keys` file, but it can also
 be passed using `SECRYPT_KEY` environment variable.
 
 ## CLI usage
@@ -76,6 +76,7 @@ Commands:
   init
 
 Options:
+  -c, --config FILE      Config file path (default: secrypt.config.json)
   -e, --environment ENV  Environment name (default: dev)
   -p, --prefix PATH      Change current working directory
 
@@ -87,8 +88,9 @@ Environment variables:
 
 ## Configuration
 
-A config can be stored in `secrypt.config.json` or in `secrypt.config.js` file.
-Each environment is configured separately:
+A config can be stored in `secrypt.config.json`, `secrypt.config.js` or in the
+`secrypt` section of `package.json`. Also, you can specify a path to the config
+using `--config` command line option.
 
 ```json
 {
@@ -105,10 +107,14 @@ Each environment is configured separately:
 }
 ```
 
-Here is the list of all available options:
+### Config options
 - `files: string[]` - a list of files to encrypt/decrypt
 - `key: string` - a secret key to use for encryption/decryption. Not recommended
   to use in the config file. Use `SECRYPT_KEY` environment variable instead.
+- `keysFile: string` - a path to a file with secret keys. By default, it is
+  `secrypt.keys`.
+
+### Override default behavior
 - `decryptFn: (filePath, options) => Promise<string>` - it could be used to
   decrypt a file in a custom way. The function should return a path to the
   new decrypted file.
