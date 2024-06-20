@@ -98,9 +98,10 @@ async function commandInit(config) {
   });
 
   logInfo(
-    `Two new files were created:\nconfig: ${configPath}\n`,
-    `Key file: ${keyPath}`,
-    'Please, update the config file with the list of files to encrypt/decrypt.',
+    'Two new files were created:',
+    `\nconfig: ${configPath}`,
+    `\nKey file: ${keyPath}`,
+    '\n\nPlease, update the config file with the file list to encrypt/decrypt.',
     'Make sure the key file and your unencrypted files are added to gitignore.',
   );
 }
