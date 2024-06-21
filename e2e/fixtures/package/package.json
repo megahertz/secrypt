@@ -4,7 +4,7 @@
   "secrypt": {
     "dev": {
       "files": [".env.dev"],
-      "keysFile": ".keys"
+      "keyFile": ".keys"
     }
   }
 }

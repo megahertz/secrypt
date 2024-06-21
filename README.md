@@ -77,7 +77,7 @@ Commands:
   init
 
 Options:
-  -c, --config FILE      Config file path (default: secrypt.config.json)
+  -c, --config PATH      Config file path (default: secrypt.config.json)
   -e, --environment ENV  Environment name (default: dev)
   -p, --prefix PATH      Change current working directory
 
@@ -112,7 +112,7 @@ using `--config` command line option.
 - `files: string[]` - a list of files to encrypt/decrypt
 - `key: string` - a secret key to use for encryption/decryption. Not recommended
   to use in the config file. Use `SECRYPT_KEY` environment variable instead.
-- `keysFile: string` - a path to a file with secret keys. By default, it is
+- `keyFile: string` - a path to a file with secret keys. By default, it is
   `secrypt.keys`.
 
 ### Override default behavior

@@ -2,6 +2,7 @@ export interface SecryptConfig {
   environment: string;
   files: string[];
   key: string;
+  keyFile: string;
   prefix: string;
 
   decryptFn: (

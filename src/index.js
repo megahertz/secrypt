@@ -72,7 +72,7 @@ async function commandEncrypt(config) {
 async function commandInit(config) {
   const packageJson = read(path.join(config.prefix, 'package.json'));
   if (packageJson?.secrypt) {
-    throw new SecryptError('secrypt is already has config in package.json');
+    throw new SecryptError('secrypt already has config in package.json');
   }
 
   let configPath = path.join(config.prefix, 'secrypt.config.js');
@@ -121,7 +121,7 @@ async function commandHelp() {
     '  init',
     '',
     'Options:',
-    '  -c, --config FILE      Config file path (default: secrypt.config.json)',
+    '  -c, --config PATH      Config file path (default: secrypt.config.json)',
     '  -e, --environment ENV  Environment name (default: dev)',
     '  -p, --prefix PATH      Change current working directory',
     '',
@@ -250,7 +250,7 @@ async function getConfig({
     || read(path.join(prefix, 'package.json'), {}).secrypt
     || {};
 
-  const keyFilePath = fileConfig[environment]?.keysFile || 'secrypt.keys';
+  const keyFilePath = fileConfig[environment]?.keyFile || 'secrypt.keys';
   const keys = await readKeyFile(path.join(prefix, keyFilePath)) || {};
 
   return {
