@@ -109,9 +109,9 @@ describe('Secrypt', () => {
       const config = await getConfig({ cwd, env: {} });
       const fileList = await getFileList(config);
       expect(fileList.map(({ decrypted }) => decrypted.rel)).toEqual([
-        'src/secrets.dev.js',
+        path.join('src/secrets.dev.js'),
         '.env.dev',
-        'src/secrets.prod.js',
+        path.join('src/secrets.prod.js'),
         '.env.prod',
       ]);
     });
@@ -120,7 +120,7 @@ describe('Secrypt', () => {
       const config = await getConfig({ cwd, args: ['-e', 'dev'] });
       const fileList = await getFileList(config);
       expect(fileList.map(({ decrypted }) => decrypted.rel)).toEqual([
-        'src/secrets.dev.js',
+        path.join('src/secrets.dev.js'),
         '.env.dev',
       ]);
     });
