@@ -15,6 +15,8 @@ module.exports = {
 
   rules: {
     'max-len': ['error', { code: 80 }],
+    'no-await-in-loop': 'off',
+    'no-continue': 'off',
     'no-use-before-define': 'off',
     'no-restricted-syntax': 'off',
     'object-curly-newline': 'off',

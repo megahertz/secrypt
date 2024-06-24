@@ -2,9 +2,9 @@
   "name": "package",
   "private": true,
   "secrypt": {
-    "dev": {
-      "files": [".env.dev"],
-      "keyFile": ".keys"
-    }
+    "files": {
+      "dev": [".env.dev"]
+    },
+    "keyFile": ".keys"
   }
 }

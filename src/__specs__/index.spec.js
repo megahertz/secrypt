@@ -13,9 +13,9 @@ describe('Secrypt', () => {
       const config = await getConfig({ env: {} });
 
       expect(config).toMatchObject({
-        environment: 'dev',
-        files: [],
-        key: '',
+        environment: 'all',
+        files: {},
+        keys: {},
         prefix: path.join(__dirname, '../..'),
       });
     });
@@ -57,7 +57,12 @@ describe('Secrypt', () => {
         env: { ...process.env, NODE_ENV: 'prod', SECRYPT_KEY: 'test' },
       });
 
-      expect(config).toMatchObject({ environment: 'prod', key: 'test' });
+      expect(config).toMatchObject({
+        environment: 'prod',
+        keys: {
+          prod: 'test',
+        },
+      });
     });
 
     it('loads js config from the parent dir', async () => {
@@ -66,9 +71,12 @@ describe('Secrypt', () => {
       const config = await getConfig({ cwd, env: {} });
 
       expect(config).toMatchObject({
-        environment: 'dev',
-        files: ['src/secrets.dev.js', '.env.dev'],
-        key: 'devtest',
+        environment: 'all',
+        files: {
+          dev: ['src/secrets.dev.js', '.env.dev'],
+          prod: ['src/secrets.prod.js', '.env.prod'],
+        },
+        keys: { dev: 'devtest', prod: 'prodtest' },
         prefix: projectPath,
       });
     });
@@ -78,8 +86,8 @@ describe('Secrypt', () => {
       const config = await getConfig({ cwd, env: {} });
 
       expect(config).toMatchObject({
-        files: ['.env.dev'],
-        key: 'custom keys file',
+        files: { dev: ['.env.dev'] },
+        keys: { dev: 'custom keys file' },
       });
     });
 
@@ -88,8 +96,8 @@ describe('Secrypt', () => {
       const config = await getConfig({ args: ['-c', 'sc.json'], cwd, env: {} });
 
       expect(config).toMatchObject({
-        files: ['.env.dev'],
-        key: 'custom config path',
+        files: { dev: ['.env.dev'] },
+        keys: { dev: 'custom config path' },
       });
     });
   });
@@ -100,8 +108,19 @@ describe('Secrypt', () => {
     it('should return the list of all files', async () => {
       const config = await getConfig({ cwd, env: {} });
       const fileList = await getFileList(config);
-      expect(fileList.map((f) => path.basename(f))).toEqual([
-        'secrets.dev.js',
+      expect(fileList.map(({ decrypted }) => decrypted.rel)).toEqual([
+        'src/secrets.dev.js',
+        '.env.dev',
+        'src/secrets.prod.js',
+        '.env.prod',
+      ]);
+    });
+
+    it('should return the list of dev files', async () => {
+      const config = await getConfig({ cwd, args: ['-e', 'dev'] });
+      const fileList = await getFileList(config);
+      expect(fileList.map(({ decrypted }) => decrypted.rel)).toEqual([
+        'src/secrets.dev.js',
         '.env.dev',
       ]);
     });
@@ -109,7 +128,7 @@ describe('Secrypt', () => {
     it('should return filtered list of all files', async () => {
       const config = await getConfig({ cwd, env: {}, args: ['.env.dev'] });
       const fileList = await getFileList(config);
-      expect(fileList.map((f) => path.basename(f))).toEqual([
+      expect(fileList.map(({ decrypted }) => decrypted.rel)).toEqual([
         '.env.dev',
       ]);
     });

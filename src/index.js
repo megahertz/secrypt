@@ -19,10 +19,12 @@ module.exports = {
   writeKeyFile,
 };
 
-main(...process.argv.slice(2)).catch((e) => {
-  logError(e instanceof SecryptError ? e.message : e);
-  process.exit(1);
-});
+if (require.main === module) {
+  main(...process.argv.slice(2)).catch((e) => {
+    logError(e instanceof SecryptError ? e.message : e);
+    process.exit(1);
+  });
+}
 
 async function main(command, ...args) {
   let actualCommand = command;
@@ -46,10 +48,9 @@ async function commandDecrypt(config) {
   validateConfig(config);
   const fileList = await config.getFileListFn(config);
 
-  for (const filePath of fileList) {
-    const encryptedFilePath = config.resolveEncryptedPathFn(filePath);
-    // eslint-disable-next-line no-await-in-loop
-    await config.decryptFn(encryptedFilePath, { config });
+  for (const file of fileList) {
+    await config.decryptFn(file);
+    logInfo('decrypted', file.encrypted.rel, '→', file.decrypted.rel);
   }
 
   const plural = fileList.length === 1 ? '' : 's';
@@ -60,9 +61,9 @@ async function commandEncrypt(config) {
   validateConfig(config);
   const fileList = await config.getFileListFn(config);
 
-  for (const filePath of fileList) {
-    // eslint-disable-next-line no-await-in-loop
-    await config.encryptFn(filePath, { config });
+  for (const file of fileList) {
+    await config.encryptFn(file);
+    logInfo('encrypted', file.encrypted.rel, '→', file.decrypted.rel);
   }
 
   const plural = fileList.length === 1 ? '' : 's';
@@ -70,14 +71,17 @@ async function commandEncrypt(config) {
 }
 
 async function commandInit(config) {
-  const packageJson = read(path.join(config.prefix, 'package.json'));
+  const environment = config.environment === 'all' ? 'dev' : config.environment;
+  const { keys, prefix } = config;
+
+  const packageJson = read(path.join(prefix, 'package.json'));
   if (packageJson?.secrypt) {
     throw new SecryptError('secrypt already has config in package.json');
   }
 
-  let configPath = path.join(config.prefix, 'secrypt.config.js');
+  let configPath = path.join(prefix, 'secrypt.config.js');
   if (!fs.existsSync(configPath)) {
-    configPath = path.join(config.prefix, 'secrypt.config.json');
+    configPath = path.join(prefix, 'secrypt.config.json');
   }
   if (!fs.existsSync(configPath)) {
     configPath = '';
@@ -87,19 +91,21 @@ async function commandInit(config) {
     throw new SecryptError(`Config file already exists: ${configPath}`);
   }
 
-  const keyPath = path.join(config.prefix, 'secrypt.keys');
+  const keyPath = path.join(prefix, 'secrypt.keys');
   if (fs.existsSync(keyPath)) {
     throw new SecryptError(`Key already exists: ${keyPath}`);
   }
 
-  configPath = path.join(config.prefix, 'secrypt.config.json');
+  configPath = path.join(prefix, 'secrypt.config.json');
   await writeJson(configPath, {
-    [config.environment]: { files: [] },
+    files: {
+      [environment]: [],
+    },
   });
 
   await writeKeyFile(keyPath, {
-    [config.environment]: config.key
-      || crypto.randomBytes(24).toString('base64').replace(/\W/g, ''),
+    [environment]: keys[environment]
+      || crypto.randomBytes(32).toString('base64url').replace(/\W/g, ''),
   });
 
   logInfo(
@@ -132,58 +138,35 @@ async function commandHelp() {
   ].join('\n'));
 }
 
-async function decryptFile(filePath, { config }) {
-  const header = await readFirstBytes(filePath, 64);
+async function decryptFile({ decrypted, encrypted, key }) {
+  const header = await readFirstBytes(encrypted.full, 64);
   const salt = header.subarray(16, 48);
   const iv = header.subarray(48, 64);
-  const key = crypto.pbkdf2Sync(config.key, salt, 100_000, 32, 'sha512');
-  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  const cryptoKey = crypto.pbkdf2Sync(key, salt, 100_000, 32, 'sha512');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', cryptoKey, iv);
 
-  const decryptedPath = config.resolveDecryptedPathFn(filePath);
-  const readStream = fs.createReadStream(filePath, { start: header.length });
-  const writeStream = fs.createWriteStream(decryptedPath);
+  const input = fs.createReadStream(encrypted.full, { start: header.length });
+  const output = fs.createWriteStream(decrypted.full);
 
-  await stream.promises.pipeline(readStream, decipher, writeStream);
-
-  logInfo(
-    'decrypted',
-    path.relative(config.prefix, filePath),
-    '→',
-    path.relative(config.prefix, decryptedPath),
-  );
-  return decryptedPath;
+  await stream.promises.pipeline(input, decipher, output);
 }
 
-async function encryptFile(filePath, { config }) {
+async function encryptFile({ decrypted, encrypted, key }) {
   const salt = crypto.randomBytes(32);
   const iv = crypto.randomBytes(16);
-  const key = crypto.pbkdf2Sync(config.key, salt, 100_000, 32, 'sha512');
-  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  const cryptoKey = crypto.pbkdf2Sync(key, salt, 100_000, 32, 'sha512');
+  const cipher = crypto.createCipheriv('aes-256-cbc', cryptoKey, iv);
 
-  const encryptedPath = config.resolveEncryptedPathFn(filePath);
-  const readStream = fs.createReadStream(filePath);
-  const writeStream = fs.createWriteStream(encryptedPath);
+  const input = fs.createReadStream(decrypted.full);
+  const output = fs.createWriteStream(encrypted.full);
 
   // 0-1: format version, 1-16: reserved, 16-48: salt, 48-64: iv
-  const header = Buffer.concat([
-    Buffer.alloc(1, 0),
-    Buffer.alloc(15, 0),
-    salt,
-    iv,
-  ]);
+  const header = Buffer.concat([Buffer.alloc(1), Buffer.alloc(15), salt, iv]);
   await new Promise((resolve, reject) => {
-    writeStream.write(header, (e) => (e ? reject(e) : resolve()));
+    output.write(header, (e) => (e ? reject(e) : resolve()));
   });
 
-  await stream.promises.pipeline(readStream, cipher, writeStream);
-
-  logInfo(
-    'encrypted',
-    path.relative(config.prefix, filePath),
-    '→',
-    path.relative(config.prefix, encryptedPath),
-  );
-  return encryptedPath;
+  await stream.promises.pipeline(input, cipher, output);
 }
 
 /**
@@ -234,7 +217,7 @@ async function getConfig({
     cli.params.push(arg);
   });
 
-  const environment = cli.environment || env.NODE_ENV || 'dev';
+  const environment = cli.environment || env.NODE_ENV || 'all';
 
   const prefix = (cli.prefix ? path.resolve(cwd, cli.prefix) : null)
     || (env.SECRYPT_PREFIX ? path.join(cwd, env.SECRYPT_PREFIX) : null)
@@ -250,42 +233,71 @@ async function getConfig({
     || read(path.join(prefix, 'package.json'), {}).secrypt
     || {};
 
-  const keyFilePath = fileConfig[environment]?.keyFile || 'secrypt.keys';
-  const keys = await readKeyFile(path.join(prefix, keyFilePath)) || {};
+  const keyFile = path.join(prefix, fileConfig.keyFile || 'secrypt.keys');
+  const keys = (await readKeyFile(keyFile)) || fileConfig.keys || {};
+
+  if (env.SECRYPT_KEY) {
+    keys[environment === 'all' ? 'dev' : environment] = env.SECRYPT_KEY;
+  }
 
   return {
     decryptFn: decryptFile,
     encryptFn: encryptFile,
     getFileListFn: getFileList,
-    resolveDecryptedPathFn: resolveDecryptedPath,
-    resolveEncryptedPathFn: resoleEncryptedPath,
+    resolveEncryptedPathFn: (filePath) => `${filePath}.enc`,
 
-    files: [],
-    key: env.SECRYPT_KEY || keys[environment] || '',
-    ...fileConfig[environment],
+    files: {},
+    ...fileConfig,
     ...cli,
+    keyFile,
+    keys,
     environment,
     prefix,
   };
 }
 
 async function getFileList(config) {
-  const { files, prefix } = config;
-  if (!Array.isArray(files)) {
-    throw new SecryptError('Wrong files configuration');
+  const { environment, keys, prefix } = config;
+
+  let list = [];
+  for (const [env, envFiles] of Object.entries(config.files)) {
+    if (!keys[env] || (environment !== 'all' && env !== environment)) {
+      continue;
+    }
+
+    for (const envFile of envFiles) {
+      const decrypted = path.resolve(prefix, envFile);
+      const encrypted = config.resolveEncryptedPathFn(decrypted);
+
+      list.push({
+        encrypted: { full: encrypted, rel: path.relative(prefix, encrypted) },
+        decrypted: { full: decrypted, rel: path.relative(prefix, decrypted) },
+        key: keys[env],
+      });
+    }
   }
 
-  let fileList = files.map((f) => path.resolve(prefix, f));
+  list = list.filter(({ key, decrypted, encrypted }) => {
+    if (!key) {
+      return false;
+    }
 
-  if (config.params.length > 0) {
-    fileList = fileList.filter((f) => config.params.some((p) => f.endsWith(p)));
-  }
+    if (!fs.existsSync(decrypted.full) && !fs.existsSync(encrypted.full)) {
+      return false;
+    }
 
-  if (fileList.length === 0) {
+    if (config.params.length > 0) {
+      return config.params.some((p) => decrypted.full.endsWith(p));
+    }
+
+    return true;
+  });
+
+  if (list.length === 0) {
     throw new SecryptError('No files to process found');
   }
 
-  return fileList;
+  return list;
 }
 
 function logInfo(...args) {
@@ -333,25 +345,17 @@ async function readKeyFile(keyPath) {
   return result;
 }
 
-function resoleEncryptedPath(filePath) {
-  return `${filePath}.enc`;
-}
-
-function resolveDecryptedPath(filePath) {
-  return filePath.replace(/\.enc$/, '');
-}
-
 function validateConfig(config) {
-  if (!config.key?.trim()) {
-    throw new SecryptError('Key is required');
+  if (!config.environment) {
+    throw new SecryptError('Environment is not configured');
   }
 
-  if (!config.files?.length) {
+  if (Object.keys(config.files) < 1) {
     throw new SecryptError('Files are not configured');
   }
 
-  if (!config.environment) {
-    throw new SecryptError('Environment is not configured');
+  if (Object.keys(config.keys) < 1) {
+    throw new SecryptError('Key is required');
   }
 }
 

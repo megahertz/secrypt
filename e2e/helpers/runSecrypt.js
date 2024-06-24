@@ -16,18 +16,28 @@ async function runSecrypt(args, options) {
         NODE_ENV: undefined,
         ...options.env,
       },
+      stdio: 'pipe',
       ...(options && typeof options === 'object' ? options : {}),
     },
   );
+
+  const output = [];
+  child.stdout.on('data', (data) => output.push(data));
+  child.stderr.on('data', (data) => output.push(data));
 
   return new Promise((resolve, reject) => {
     child
       .on('error', reject)
       .on('close', (code) => {
         if (!code) {
+          // console.info(Buffer.concat(output).toString('utf8'));
           resolve();
         } else {
-          reject(new Error(`Process exited with code ${code}`));
+          const command = `secrypt ${args.join(' ')}`;
+          const buf = Buffer.concat(output).toString('utf8');
+          reject(new Error(
+            `${command} exited with code ${code}. Output:\n${buf}`,
+          ));
         }
       });
   });

@@ -27,10 +27,15 @@ widely used approach at least in Ruby on Rails and in Fastlane.
 
 ## Usage
 
-### TLDR
+### TLDR{
+"files": {
+"dev": ["secrets.json"]
+}
+}
+
 ```
 secrypt init
-echo '{"dev": {"files": [".env.dev"] } }' > secrypt.config.json
+echo '{ "files": { "dev": ["secrets.json"] } }' > secrypt.config.json
 secrypt encrypt
 
 echo secrypt.keys >> .gitignore
@@ -49,10 +54,8 @@ git commit -m 'chore: Add encrypted secrets'
 
 ```json
 {
-  "dev": {
-    "files": [
-      "secrets.json"
-    ]
+  "files": {
+    "dev": ["secrets.json"]
   }
 }
 ```
@@ -95,72 +98,57 @@ using `--config` command line option.
 
 ```json
 {
-  "dev": {
-    "files": [
-      ".env.dev"
-    ]
-  },
-  "prod": {
-    "files": [
-      ".env.prod"
-    ]
+  "files": {
+    "dev": [".env.dev"],
+    "prod": [".env.prod"]
   }
 }
 ```
 
 ### Config options
-- `files: string[]` - a list of files to encrypt/decrypt
-- `key: string` - a secret key to use for encryption/decryption. Not recommended
-  to use in the config file. Use `SECRYPT_KEY` environment variable instead.
+- `files: Record<string, string[]>` - a list of files to encrypt/decrypt
+- `keys: Record<string, string>` - a secret keys to use for 
+  encryption/decryption. Not recommended to use in the config file.
+  Use `SECRYPT_KEY` environment variable instead.
 - `keyFile: string` - a path to a file with secret keys. By default, it is
   `secrypt.keys`.
 
 ### Override default behavior
-- `decryptFn: (filePath, options) => Promise<string>` - it could be used to
-  decrypt a file in a custom way. The function should return a path to the
-  new decrypted file.
+- `decryptFn: (file: SecryptFile) => Promise<void>` - it could be used to
+  decrypt a file in a custom way.
 
   Example:
   ```js
-  async function decryptFn(sourcePath, options) {
-    const destPath = sourcePath.replace(/\.enc$/, '');
-    await mycryptlib.decrypt(sourcePath, destPath, options.config.key);
-    return destPath;
+  async function decryptFn({ decrypted, encryped, key }) {
+    await mycryptlib.decrypt(encryped.full, decrypted.full, key);
   }
   ```
-- `encryptFn: (filePath, options) => Promise<string>` - it could be used to
-  encrypt a file in a custom way. The function should return a path to the 
-  new encrypted file.
+- `encryptFn: (file: SecryptFile) => Promise<void>` - it could be used to
+  encrypt a file in a custom way.
 
   Example:
   ```js
-  async function encryptFn(sourcePath, options) {
-    const destPath = sourcePath + '.enc';
-    await mycryptlib.encrypt(sourcePath, destPath, options.config.key);
-    return destPath;
+  async function encryptFn({ decrypted, encryped, key }) {
+    await mycryptlib.encrypt(decrypted.full, encryped.full, key);
   }
   ```
 
-- `getFileListFn: (config: SecryptConfig) => Promise<string[]>` - return a list
-  of files which should be encrypted.
+- `getFileListFn: (config: SecryptConfig) => Promise<SecryptFile[]>` - return a
+  list of files which should be encrypted.
 
   Example:
   ```js
   async function getFileListFn(config) {
+    const env = config.environment === 'all' ? 'dev' : config.environment;
     const files = await glob('secrets/*.yml');
-    return files.map(file => path.resolve(file));
+    return files.map((rel) => ({
+      decryped: { full: path.resolve(file), rel },
+      encrypted: { full: path.resolve(`${file}.enc`), rel: `${file}.enc` },
+      key: config.keys[env],
+    }));
   }
   ```
 
-- `resolveDecryptedPathFn: (filePath: string) => string` - it could be used to
-  resolve a path to a decrypted file. By default, it removes `.enc` extension.
-
-  Example:
-  ```js
-  function resolveDecryptedPathFn(filePath) {
-    return filePath.replace(/\.enc$/, '');
-  }
-  ```
 - `resolveEncryptedPathFn: (filePath: string) => string` - it could be used to
   resolve a path to an encrypted file. By default, it adds `.enc` extension.
 

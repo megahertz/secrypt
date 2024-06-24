@@ -1,5 +1,3 @@
 {
-  "dev": {
-    "files": [".env.dev"]
-  }
+  "files": { "dev": [".env.dev"] }
 }
