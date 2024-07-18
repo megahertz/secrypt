@@ -4,7 +4,7 @@ const path = require('node:path');
 const runSecrypt = require('./helpers/runSecrypt');
 const useDir = require('./helpers/useDir');
 
-describe.skip('Init', () => {
+describe('Init', () => {
   const emptyDir = useDir(path.join(__dirname, 'fixtures/empty'));
 
   it('should create a config and a random secret', async () => {
