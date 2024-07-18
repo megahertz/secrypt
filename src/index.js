@@ -79,7 +79,7 @@ async function commandEncrypt(config) {
 
 async function commandInit(config) {
   const environment = config.environment === 'all' ? 'dev' : config.environment;
-  const { keyFile, keys, prefix } = config;
+  const { keyFile, keys, messages, prefix } = config;
 
   let configPath = path.join(prefix, 'package.json');
   if (!read(configPath)?.secrypt) {
@@ -95,7 +95,7 @@ async function commandInit(config) {
   if (configPath) {
     logInfo(`Secrypt already initialized with config at ${configPath}`);
     if (Object.keys(keys).length === 0) {
-      logInfo('You can set encryption keys now. Press CTRL+C to skip');
+      logInfo(messages.pasteKeysOnInit);
       await commandKeysSet(config);
       const files = await config.getFileListFn(config);
       if (files.every(({ encrypted }) => encrypted.exists)) {
@@ -287,6 +287,10 @@ async function getConfig({
     ...cli,
     keyFile,
     keys,
+    messages: {
+      pasteKeysOnInit: 'You can set encryption keys now. Press CTRL+C to skip',
+      ...fileConfig?.messages,
+    },
     environment,
     prefix,
   };

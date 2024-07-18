@@ -3,6 +3,9 @@ export interface SecryptConfig {
   files: Record<string, string[]>;
   keyFile: string;
   keys: Record<string, string>;
+  messages: {
+    pasteKeysOnInit: string;
+  };
   prefix: string;
 
   decryptFn: (file: SecryptFile) => Promise<string>;
