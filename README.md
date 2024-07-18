@@ -23,15 +23,11 @@ widely used approach at least in Ruby on Rails and in Fastlane.
 
 ## Installation
 
-    npm install secrypt
+`npm install -D secrypt`
 
 ## Usage
 
-### TLDR{
-"files": {
-"dev": ["secrets.json"]
-}
-}
+### TLDR
 
 ```
 secrypt init
