@@ -79,14 +79,12 @@ async function commandEncrypt(config) {
 
 async function commandInit(config) {
   const environment = config.environment === 'all' ? 'dev' : config.environment;
-  const { keys, prefix } = config;
+  const { keyFile, keys, prefix } = config;
 
-  const packageJson = read(path.join(prefix, 'package.json'));
-  if (packageJson?.secrypt) {
-    throw new SecryptError('secrypt already has config in package.json');
+  let configPath = path.join(prefix, 'package.json');
+  if (!read(configPath)?.secrypt) {
+    configPath = path.join(prefix, 'secrypt.config.js');
   }
-
-  let configPath = path.join(prefix, 'secrypt.config.js');
   if (!fs.existsSync(configPath)) {
     configPath = path.join(prefix, 'secrypt.config.json');
   }
@@ -95,30 +93,32 @@ async function commandInit(config) {
   }
 
   if (configPath) {
-    throw new SecryptError(`Config file already exists: ${configPath}`);
+    logInfo(`Secrypt already initialized with config at ${configPath}`);
+    if (Object.keys(keys).length === 0) {
+      logInfo('You can set encryption keys now. Press CTRL+C to skip');
+      await commandKeysSet(config);
+      const files = await config.getFileListFn(config);
+      if (files.every(({ encrypted }) => encrypted.exists)) {
+        await commandDecrypt(config);
+      }
+    }
+    return;
   }
 
-  const keyPath = path.join(prefix, 'secrypt.keys');
-  if (fs.existsSync(keyPath)) {
-    throw new SecryptError(`Key already exists: ${keyPath}`);
+  if (!fs.existsSync(keyFile)) {
+    await writeKeyFile(keyFile, {
+      [environment]: keys[environment]
+      || crypto.randomBytes(32).toString('base64url').replace(/\W/g, ''),
+    });
   }
 
   configPath = path.join(prefix, 'secrypt.config.json');
-  await writeJson(configPath, {
-    files: {
-      [environment]: [],
-    },
-  });
-
-  await writeKeyFile(keyPath, {
-    [environment]: keys[environment]
-      || crypto.randomBytes(32).toString('base64url').replace(/\W/g, ''),
-  });
+  await writeJson(configPath, { files: { [environment]: [] } });
 
   logInfo(
     'Two new files were created:',
     `\nConfig: ${configPath}`,
-    `\nKey file: ${keyPath}`,
+    `\nKey file: ${keyFile}`,
     '\n\nPlease, update the config file with the file list to encrypt/decrypt.',
     'Make sure the key file and your unencrypted files are added to gitignore.',
   );
@@ -169,6 +169,8 @@ async function commandKeysSet(config) {
   }
 
   await fs.promises.writeFile(keyFile, `${keyLines.join('\n')}\n`, 'utf8');
+  // eslint-disable-next-line no-param-reassign
+  config.keys = await readKeyFile(keyFile);
   logInfo(`Encryption keys successfully saved to ${keyFile}`);
 }
 
@@ -304,8 +306,16 @@ async function getFileList(config) {
       const encrypted = config.resolveEncryptedPathFn(decrypted);
 
       list.push({
-        encrypted: { full: encrypted, rel: path.relative(prefix, encrypted) },
-        decrypted: { full: decrypted, rel: path.relative(prefix, decrypted) },
+        encrypted: {
+          exists: fs.existsSync(encrypted),
+          full: encrypted,
+          rel: path.relative(prefix, encrypted),
+        },
+        decrypted: {
+          exists: fs.existsSync(decrypted),
+          full: decrypted,
+          rel: path.relative(prefix, decrypted),
+        },
         key: keys[env],
       });
     }
@@ -316,7 +326,7 @@ async function getFileList(config) {
       return false;
     }
 
-    if (!fs.existsSync(decrypted.full) && !fs.existsSync(encrypted.full)) {
+    if (!decrypted.exists && !encrypted.exists) {
       return false;
     }
 
