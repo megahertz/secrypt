@@ -75,9 +75,12 @@ be passed using `SECRYPT_KEY` environment variable.
 Usage: secrypt COMMAND [options]
 
 Commands:
-  encrypt [...ONLY_THIS_FILES]
-  decrypt [...ONLY_THIS_FILES]
+  encrypt [...ONLY_THESE_FILES]
+  decrypt [...ONLY_THESE_FILES]
   init
+  keys-regenerate
+  keys-set
+
 
 Options:
   -c, --config PATH      Config file path (default: secrypt.config.json)

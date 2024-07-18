@@ -20,6 +20,8 @@ export interface SecryptFile {
 export function commandDecrypt(config: SecryptConfig): Promise<void>;
 export function commandEncrypt(config: SecryptConfig): Promise<void>;
 export function commandInit(config: SecryptConfig): Promise<void>;
+export function commandKeysRegenerate(config: SecryptConfig): Promise<void>;
+export function commandKeysSet(config: SecryptConfig): Promise<void>;
 export function decryptFile(file: SecryptFile): Promise<string>;
 export function encryptFile(file: SecryptFile): Promise<string>;
 export function getConfig(options: {

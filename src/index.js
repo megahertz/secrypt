@@ -5,12 +5,15 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const readline = require('node:readline');
 const stream = require('node:stream');
 
 module.exports = {
   commandDecrypt,
   commandEncrypt,
   commandInit,
+  commandKeysRegenerate,
+  commandKeysSet,
   decryptFile,
   encryptFile,
   getConfig,
@@ -39,6 +42,10 @@ async function main(command, ...args) {
       return commandEncrypt(await getConfig({ args }));
     case 'init':
       return commandInit(await getConfig({ args }));
+    case 'keys-regenerate':
+      return commandKeysRegenerate(await getConfig({ args }));
+    case 'keys-set':
+      return commandKeysSet(await getConfig({ args }));
     default:
       return commandHelp();
   }
@@ -125,6 +132,8 @@ async function commandHelp() {
     '  encrypt [...ONLY_THESE_FILES]',
     '  decrypt [...ONLY_THESE_FILES]',
     '  init',
+    '  keys-regenerate',
+    '  keys-set',
     '',
     'Common options:',
     '  -c, --config PATH      Config file path (default: secrypt.config.json)',
@@ -136,6 +145,31 @@ async function commandHelp() {
     '  SECRYPT_PREFIX Set working directory path',
     '  NODE_ENV       Set the environment name',
   ].join('\n'));
+}
+
+async function commandKeysRegenerate(config) {
+  const { keyFile } = config;
+
+  const keys = {};
+  for (const env of Object.keys(config.files)) {
+    keys[env] = crypto.randomBytes(32).toString('base64url').replace(/\W/g, '');
+  }
+
+  await writeKeyFile(keyFile, keys);
+}
+
+async function commandKeysSet(config) {
+  const { keyFile } = config;
+
+  logInfo('Paste encryption keys here and press ENTER:');
+
+  const keyLines = (await readText()).filter((l) => l && l.match(/\w+: \w+/));
+  if (keyLines.length < 1) {
+    throw new SecryptError(`No keys provided. Set keys in ${keyFile} manually`);
+  }
+
+  await fs.promises.writeFile(keyFile, `${keyLines.join('\n')}\n`, 'utf8');
+  logInfo(`Encryption keys successfully saved to ${keyFile}`);
 }
 
 async function decryptFile({ decrypted, encrypted, key }) {
@@ -343,6 +377,24 @@ async function readKeyFile(keyPath) {
   }
 
   return result;
+}
+
+async function readText() {
+  const lines = [];
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.on('line', (line) => {
+      lines.push(line.trim());
+      if (line.trim() === '') {
+        rl.close();
+        resolve(lines);
+      }
+    });
+  });
 }
 
 function validateConfig(config) {
