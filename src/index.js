@@ -109,6 +109,7 @@ async function commandInit(config) {
       }
     }
     await runHook('alreadyInit', config);
+    await runHook('postInit', config);
     return;
   }
 
@@ -129,6 +130,7 @@ async function commandInit(config) {
     '\n\nPlease, update the config file with the file list to encrypt/decrypt.',
     'Make sure the key file and your unencrypted files are added to gitignore.',
   );
+  await runHook('successfulInit', config);
   await runHook('postInit', config);
 }
 
