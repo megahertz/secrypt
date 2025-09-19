@@ -87,13 +87,15 @@ async function commandInit(config) {
   const { keyFile, keys, messages, prefix } = config;
   await runHook('preInit', config);
 
-  let configPath = path.join(prefix, 'package.json');
-  if (!read(configPath)?.secrypt) {
-    for (const ext of ['mjs', 'cjs', 'js', 'json']) {
-      configPath = path.join(prefix, `secrypt.config.${ext}`);
-      if (configPath && fs.existsSync(configPath)) {
-        break;
-      }
+  let configPath = '';
+  if (read(path.join(prefix, 'package.json'))?.secrypt) {
+    configPath = path.join(prefix, 'package.json');
+  }
+
+  for (const ext of ['mjs', 'cjs', 'js', 'json']) {
+    if (!configPath) {
+      const p = path.join(prefix, `secrypt.config.${ext}`);
+      configPath = fs.existsSync(p) ? p : '';
     }
   }
 
