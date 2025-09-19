@@ -1,6 +1,6 @@
 {
   "name": "secrypt",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Tool for keeping repository secrets encrypted",
   "main": "src/index.js",
   "typings": "src/index.d.ts",
