@@ -89,13 +89,12 @@ async function commandInit(config) {
 
   let configPath = path.join(prefix, 'package.json');
   if (!read(configPath)?.secrypt) {
-    configPath = path.join(prefix, 'secrypt.config.js');
-  }
-  if (!fs.existsSync(configPath)) {
-    configPath = path.join(prefix, 'secrypt.config.json');
-  }
-  if (!fs.existsSync(configPath)) {
-    configPath = '';
+    for (const ext of ['mjs', 'cjs', 'js', 'json']) {
+      configPath = path.join(prefix, `secrypt.config.${ext}`);
+      if (configPath && fs.existsSync(configPath)) {
+        break;
+      }
+    }
   }
 
   if (configPath) {
@@ -272,16 +271,16 @@ async function getConfig({
   const prefix = (cli.prefix ? path.resolve(cwd, cli.prefix) : null)
     || (env.SECRYPT_PREFIX ? path.join(cwd, env.SECRYPT_PREFIX) : null)
     || findUp('secrypt.keys', cwd)
-    || findUp('secrypt.config.js', cwd)
-    || findUp('secrypt.config.cjs', cwd)
     || findUp('secrypt.config.mjs', cwd)
+    || findUp('secrypt.config.cjs', cwd)
+    || findUp('secrypt.config.js', cwd)
     || findUp('secrypt.config.json', cwd)
     || findUp('package.json', cwd)
     || cwd;
 
   const fileConfig = (cli.config && read(path.resolve(prefix, cli.config)))
-    || read(path.join(prefix, 'secrypt.config.cjs'))
     || read(path.join(prefix, 'secrypt.config.mjs'))
+    || read(path.join(prefix, 'secrypt.config.cjs'))
     || read(path.join(prefix, 'secrypt.config.js'))
     || read(path.join(prefix, 'secrypt.config.json'))
     || read(path.join(prefix, 'package.json'), {}).secrypt
