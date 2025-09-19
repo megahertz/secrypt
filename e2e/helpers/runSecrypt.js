@@ -32,7 +32,7 @@ async function runSecrypt(args, options) {
         const buf = Buffer.concat(output).toString('utf8');
 
         if (!code) {
-          resolve(buf.split('\n').filter(Boolean));
+          resolve(buf.split('\n').map((l) => l.trim()).filter(Boolean));
         } else {
           const command = `secrypt ${args.join(' ')}`;
           reject(new Error(
