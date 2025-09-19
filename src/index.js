@@ -2,6 +2,7 @@
 
 'use strict';
 
+const childProcess = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -53,6 +54,7 @@ async function main(command, ...args) {
 
 async function commandDecrypt(config) {
   validateConfig(config);
+  await runHook('preDecrypt', config);
   const fileList = await config.getFileListFn(config);
 
   for (const file of fileList) {
@@ -62,10 +64,12 @@ async function commandDecrypt(config) {
 
   const plural = fileList.length === 1 ? '' : 's';
   logInfo(`${fileList.length} file${plural} decrypted successfully`);
+  await runHook('postDecrypt', config);
 }
 
 async function commandEncrypt(config) {
   validateConfig(config);
+  await runHook('preEncrypt', config);
   const fileList = await config.getFileListFn(config);
 
   for (const file of fileList) {
@@ -75,11 +79,13 @@ async function commandEncrypt(config) {
 
   const plural = fileList.length === 1 ? '' : 's';
   logInfo(`${fileList.length} file${plural} encrypted successfully`);
+  await runHook('postEncrypt', config);
 }
 
 async function commandInit(config) {
   const environment = config.environment === 'all' ? 'dev' : config.environment;
   const { keyFile, keys, messages, prefix } = config;
+  await runHook('preInit', config);
 
   let configPath = path.join(prefix, 'package.json');
   if (!read(configPath)?.secrypt) {
@@ -102,6 +108,7 @@ async function commandInit(config) {
         await commandDecrypt(config);
       }
     }
+    await runHook('alreadyInit', config);
     return;
   }
 
@@ -122,6 +129,7 @@ async function commandInit(config) {
     '\n\nPlease, update the config file with the file list to encrypt/decrypt.',
     'Make sure the key file and your unencrypted files are added to gitignore.',
   );
+  await runHook('postInit', config);
 }
 
 async function commandHelp() {
@@ -148,6 +156,7 @@ async function commandHelp() {
 }
 
 async function commandKeysRegenerate(config) {
+  await runHook('preKeysRegenerate', config);
   const { keyFile } = config;
 
   const keys = {};
@@ -156,9 +165,11 @@ async function commandKeysRegenerate(config) {
   }
 
   await writeKeyFile(keyFile, keys);
+  await runHook('postKeysRegenerate', config);
 }
 
 async function commandKeysSet(config) {
+  await runHook('preKeysSet', config);
   const { keyFile } = config;
 
   logInfo('Paste encryption keys here and press ENTER:');
@@ -172,6 +183,7 @@ async function commandKeysSet(config) {
   // eslint-disable-next-line no-param-reassign
   config.keys = await readKeyFile(keyFile);
   logInfo(`Encryption keys successfully saved to ${keyFile}`);
+  await runHook('postKeysSet', config);
 }
 
 async function decryptFile({ decrypted, encrypted, key }) {
@@ -259,11 +271,15 @@ async function getConfig({
     || (env.SECRYPT_PREFIX ? path.join(cwd, env.SECRYPT_PREFIX) : null)
     || findUp('secrypt.keys', cwd)
     || findUp('secrypt.config.js', cwd)
+    || findUp('secrypt.config.cjs', cwd)
+    || findUp('secrypt.config.mjs', cwd)
     || findUp('secrypt.config.json', cwd)
     || findUp('package.json', cwd)
     || cwd;
 
   const fileConfig = (cli.config && read(path.resolve(prefix, cli.config)))
+    || read(path.join(prefix, 'secrypt.config.cjs'))
+    || read(path.join(prefix, 'secrypt.config.mjs'))
     || read(path.join(prefix, 'secrypt.config.js'))
     || read(path.join(prefix, 'secrypt.config.json'))
     || read(path.join(prefix, 'package.json'), {}).secrypt
@@ -282,6 +298,7 @@ async function getConfig({
     getFileListFn: getFileList,
     resolveEncryptedPathFn: (filePath) => `${filePath}.enc`,
 
+    hooks: {},
     files: {},
     ...fileConfig,
     ...cli,
@@ -409,6 +426,38 @@ async function readText() {
       }
     });
   });
+}
+
+async function runHook(hookName, config) {
+  if (typeof config.hooks[hookName] === 'function') {
+    // eslint-disable-next-line no-await-in-loop
+    await config.hooks[hookName](config);
+  } else if (typeof config.hooks[hookName] === 'string') {
+    let command = config.hooks[hookName];
+    for (const [key, value] of Object.entries(config)) {
+      command = command.replace(`{${key}}`, value);
+    }
+
+    const child = childProcess.spawn(command, {
+      shell: true,
+      stdio: 'inherit',
+    });
+    await new Promise((resolve, reject) => {
+      child
+        .on('error', reject)
+        .on('close', (code) => {
+          if (code) {
+            reject(new Error(`Command "${command}" quit, code: ${code}`));
+          } else {
+            resolve();
+          }
+        });
+    });
+  }
+
+  if (typeof config.messages[hookName] === 'string') {
+    logInfo(config.messages[hookName]);
+  }
 }
 
 function validateConfig(config) {

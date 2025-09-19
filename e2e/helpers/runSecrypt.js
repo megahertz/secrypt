@@ -29,12 +29,12 @@ async function runSecrypt(args, options) {
     child
       .on('error', reject)
       .on('close', (code) => {
+        const buf = Buffer.concat(output).toString('utf8');
+
         if (!code) {
-          // console.info(Buffer.concat(output).toString('utf8'));
-          resolve();
+          resolve(buf.split('\n').filter(Boolean));
         } else {
           const command = `secrypt ${args.join(' ')}`;
-          const buf = Buffer.concat(output).toString('utf8');
           reject(new Error(
             `${command} exited with code ${code}. Output:\n${buf}`,
           ));
