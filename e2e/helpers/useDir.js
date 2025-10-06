@@ -40,6 +40,9 @@ function useDir(dirPath) {
     async rm(subPath) {
       await fs.promises.rm(path.join(dir.path, subPath), { recursive: true });
     },
+    async write(subPath, content) {
+      await fs.promises.writeFile(dir.join(subPath), content);
+    },
   };
 
   beforeEach(async () => {

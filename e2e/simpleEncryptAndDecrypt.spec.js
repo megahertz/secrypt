@@ -8,7 +8,6 @@ describe('Simple encrypt and decrypt', () => {
   const simpleDir = useDir(path.join(__dirname, 'fixtures/simple'));
 
   it('should encrypt files and the decrypt them back', async () => {
-    simpleDir.cleanTempDir = false;
     const options = { cwd: simpleDir.path, env: { SECRYPT_KEY: 'test' } };
 
     await runSecrypt(['encrypt'], options);

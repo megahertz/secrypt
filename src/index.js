@@ -15,6 +15,7 @@ module.exports = {
   commandInit,
   commandKeysRegenerate,
   commandKeysSet,
+  createDecipher,
   decryptFile,
   encryptFile,
   getConfig,
@@ -59,7 +60,7 @@ async function commandDecrypt(config) {
 
   for (const file of fileList) {
     await config.decryptFn(file);
-    logInfo('decrypted', file.encrypted.rel, '→', file.decrypted.rel);
+    logInfo('decrypt', file.encrypted.rel, '→', file.decrypted.rel);
   }
 
   const plural = fileList.length === 1 ? '' : 's';
@@ -73,8 +74,14 @@ async function commandEncrypt(config) {
   const fileList = await config.getFileListFn(config);
 
   for (const file of fileList) {
+    if (!config.force && !(await wasChanged(file))) {
+      await runHook('skipEncrypt', config, file.decrypted);
+      logInfo('skip unchanged', file.decrypted.rel);
+      continue;
+    }
+
     await config.encryptFn(file);
-    logInfo('encrypted', file.encrypted.rel, '→', file.decrypted.rel);
+    logInfo('encrypt', file.decrypted.rel, '→', file.encrypted.rel);
   }
 
   const plural = fileList.length === 1 ? '' : 's';
@@ -140,7 +147,7 @@ async function commandHelp() {
     'Usage: secrypt COMMAND [options]',
     '',
     'Commands:',
-    '  encrypt [...ONLY_THESE_FILES]',
+    '  encrypt [--force] [...ONLY_THESE_FILES]',
     '  decrypt [...ONLY_THESE_FILES]',
     '  init',
     '  keys-regenerate',
@@ -189,17 +196,32 @@ async function commandKeysSet(config) {
   await runHook('postKeysSet', config);
 }
 
-async function decryptFile({ decrypted, encrypted, key }) {
-  const header = await readFirstBytes(encrypted.full, 64);
+async function createDecipher({ filePath, key }) {
+  const header = await readFirstBytes(filePath, 64);
   const salt = header.subarray(16, 48);
   const iv = header.subarray(48, 64);
   const cryptoKey = crypto.pbkdf2Sync(key, salt, 100_000, 32, 'sha512');
+
   const decipher = crypto.createDecipheriv('aes-256-cbc', cryptoKey, iv);
+  const encryptedStream = fs.createReadStream(filePath, {
+    start: header.length,
+  });
 
-  const input = fs.createReadStream(encrypted.full, { start: header.length });
+  return {
+    decipher,
+    encryptedStream,
+    header,
+  };
+}
+
+async function decryptFile({ decrypted, encrypted, key }) {
+  const { decipher, encryptedStream } = await createDecipher({
+    filePath: encrypted.full,
+    key,
+  });
+
   const output = fs.createWriteStream(decrypted.full);
-
-  await stream.promises.pipeline(input, decipher, output);
+  await stream.promises.pipeline(encryptedStream, decipher, output);
 }
 
 async function encryptFile({ decrypted, encrypted, key }) {
@@ -431,10 +453,10 @@ async function readText() {
   });
 }
 
-async function runHook(hookName, config) {
+async function runHook(hookName, config, ...args) {
   if (typeof config.hooks[hookName] === 'function') {
     // eslint-disable-next-line no-await-in-loop
-    await config.hooks[hookName](config);
+    await config.hooks[hookName](config, ...args);
   } else if (typeof config.hooks[hookName] === 'string') {
     let command = config.hooks[hookName];
     for (const [key, value] of Object.entries(config)) {
@@ -474,6 +496,29 @@ function validateConfig(config) {
 
   if (Object.keys(config.keys) < 1) {
     throw new SecryptError('Key is required');
+  }
+}
+
+async function wasChanged({ decrypted, encrypted, key }) {
+  try {
+    const { decipher, encryptedStream } = await createDecipher({
+      filePath: encrypted.full,
+      key,
+    });
+    const decryptedStream = fs.createReadStream(decrypted.full);
+    return !await streamsEqual(decryptedStream, encryptedStream.pipe(decipher));
+  } catch (e) {
+    return true;
+  }
+
+  async function streamsEqual(streamA, streamB) {
+    return await streamHash(streamA) === await streamHash(streamB);
+  }
+
+  async function streamHash(readableStream) {
+    const hash = crypto.createHash('sha256');
+    await stream.promises.pipeline(readableStream, hash);
+    return hash.digest('hex');
   }
 }
 

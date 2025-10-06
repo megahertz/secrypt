@@ -1,3 +1,6 @@
+import type { Decipher } from 'node:crypto';
+import type { Readable } from 'node:stream';
+
 export interface SecryptConfig {
   environment: string;
   files: Record<string, string[]>;
@@ -25,6 +28,11 @@ export function commandEncrypt(config: SecryptConfig): Promise<void>;
 export function commandInit(config: SecryptConfig): Promise<void>;
 export function commandKeysRegenerate(config: SecryptConfig): Promise<void>;
 export function commandKeysSet(config: SecryptConfig): Promise<void>;
+export function createDecipher({ filePath, key }: { filePath: string; key: string }): Promise<{
+  decipher: Decipher;
+  encryptedStream: Readable;
+  header: Buffer;
+}>;
 export function decryptFile(file: SecryptFile): Promise<string>;
 export function encryptFile(file: SecryptFile): Promise<string>;
 export function getConfig(options: {

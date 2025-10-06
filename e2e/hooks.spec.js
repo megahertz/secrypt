@@ -14,13 +14,13 @@ describe('Hooks', () => {
     expect(encryptOutput).toEqual([
       'Pre encrypt hook',
       'Static pre-encrypt message',
-      'encrypted secrets.json.enc → secrets.json',
+      'encrypt secrets.json → secrets.json.enc',
       '1 file encrypted successfully',
     ]);
 
     const decryptOutput = await runSecrypt(['decrypt'], options);
     expect(decryptOutput).toEqual([
-      'decrypted secrets.json.enc → secrets.json',
+      'decrypt secrets.json.enc → secrets.json',
       '1 file decrypted successfully',
       'Post decrypt hook',
     ]);

@@ -13,6 +13,8 @@ module.exports = {
     ecmaVersion: '2022',
   },
 
+  ignorePatterns: ['*.ts'],
+
   rules: {
     'max-len': ['error', { code: 80 }],
     'no-await-in-loop': 'off',
