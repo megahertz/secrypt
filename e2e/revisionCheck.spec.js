@@ -20,6 +20,7 @@ describe('Revision check', () => {
 
     expect(await runSecrypt(['revision-check'], options)).toEqual([
       'Your local secrets are outdated',
+      'Run `secrypt decrypt` to update local secrets',
     ]);
   });
 

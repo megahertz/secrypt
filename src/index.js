@@ -233,6 +233,8 @@ async function commandRevisionCheck(config) {
 
   if (config.decrypt) {
     await commandDecrypt(config);
+  } else {
+    await runHook('revisionUpdateMessage', config);
   }
 
   await runHook('postRevisionCheck', config);
@@ -382,6 +384,7 @@ async function getConfig({
     messages: {
       pasteKeysOnInit: 'You can set encryption keys now. Press CTRL+C to skip',
       revisionOld: 'Your local secrets are outdated',
+      revisionUpdateMessage: 'Run `secrypt decrypt` to update local secrets',
       ...fileConfig?.messages,
     },
     environment,
