@@ -56,7 +56,7 @@ export function createDecipher(
 }>;
 export function decryptFile(file: SecryptFile): Promise<string>;
 export function encryptFile(file: SecryptFile): Promise<string>;
-export function getConfig(options: {
+export function getConfig(options?: {
   args?: string[];
   env?: Record<string, string>;
   cwd?: string;
