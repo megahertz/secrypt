@@ -15,13 +15,17 @@ module.exports = {
   commandInit,
   commandKeysRegenerate,
   commandKeysSet,
+  commandRevisionCheck,
   createDecipher,
   decryptFile,
   encryptFile,
   getConfig,
   getFileList,
+  isRevisionActual,
   readKeyFile,
+  readRevision,
   writeKeyFile,
+  writeRevision,
 };
 
 if (require.main === module) {
@@ -48,6 +52,8 @@ async function main(command, ...args) {
       return commandKeysRegenerate(await getConfig({ args }));
     case 'keys-set':
       return commandKeysSet(await getConfig({ args }));
+    case 'revision-check':
+      return commandRevisionCheck(await getConfig({ args }));
     default:
       return commandHelp();
   }
@@ -63,6 +69,8 @@ async function commandDecrypt(config) {
     logInfo('decrypt', file.encrypted.rel, '→', file.decrypted.rel);
   }
 
+  await writeRevision(config, await readRevision(config), { primary: false });
+
   const plural = fileList.length === 1 ? '' : 's';
   logInfo(`${fileList.length} file${plural} decrypted successfully`);
   await runHook('postDecrypt', config);
@@ -72,6 +80,7 @@ async function commandEncrypt(config) {
   validateConfig(config);
   await runHook('preEncrypt', config);
   const fileList = await config.getFileListFn(config);
+  let encryptedCount = 0;
 
   for (const file of fileList) {
     if (!config.force && !(await wasChanged(file))) {
@@ -82,10 +91,20 @@ async function commandEncrypt(config) {
 
     await config.encryptFn(file);
     logInfo('encrypt', file.decrypted.rel, '→', file.encrypted.rel);
+    encryptedCount += 1;
   }
 
-  const plural = fileList.length === 1 ? '' : 's';
-  logInfo(`${fileList.length} file${plural} encrypted successfully`);
+  if (encryptedCount > 0) {
+    await writeRevision(config, await readRevision(config) + 1);
+  }
+
+  if (encryptedCount === 0) {
+    logInfo('no files were encrypted');
+  } else {
+    const plural = encryptedCount === 1 ? '' : 's';
+    logInfo(`${encryptedCount} file${plural} encrypted successfully`);
+  }
+
   await runHook('postEncrypt', config);
 }
 
@@ -152,6 +171,7 @@ async function commandHelp() {
     '  init',
     '  keys-regenerate',
     '  keys-set',
+    '  revision-check [--decrypt if old] [--code process exit code]',
     '',
     'Common options:',
     '  -c, --config PATH      Config file path (default: secrypt.config.json)',
@@ -194,6 +214,28 @@ async function commandKeysSet(config) {
   config.keys = await readKeyFile(keyFile);
   logInfo(`Encryption keys successfully saved to ${keyFile}`);
   await runHook('postKeysSet', config);
+}
+
+async function commandRevisionCheck(config) {
+  validateConfig(config);
+  await runHook('preRevisionCheck', config);
+
+  if (await isRevisionActual(config)) {
+    await runHook('postRevisionCheck', config);
+    return;
+  }
+
+  await runHook('revisionOld', config);
+
+  if (config.code) {
+    process.exitCode = config.code;
+  }
+
+  if (config.decrypt) {
+    await commandDecrypt(config);
+  }
+
+  await runHook('postRevisionCheck', config);
 }
 
 async function createDecipher({ filePath, key }) {
@@ -240,6 +282,12 @@ async function encryptFile({ decrypted, encrypted, key }) {
   });
 
   await stream.promises.pipeline(input, cipher, output);
+}
+
+async function isRevisionActual(config) {
+  const revision = await readRevision(config);
+  const localRevision = await readRevision(config, { local: true });
+  return revision <= localRevision;
 }
 
 /**
@@ -311,6 +359,8 @@ async function getConfig({
     || {};
 
   const keyFile = path.join(prefix, fileConfig.keyFile || 'secrypt.keys');
+  const revisionFile = fileConfig.revisionFile
+    && path.join(prefix, fileConfig.revisionFile);
   const keys = (await readKeyFile(keyFile)) || fileConfig.keys || {};
 
   if (env.SECRYPT_KEY) {
@@ -331,10 +381,12 @@ async function getConfig({
     keys,
     messages: {
       pasteKeysOnInit: 'You can set encryption keys now. Press CTRL+C to skip',
+      revisionOld: 'Your local secrets are outdated',
       ...fileConfig?.messages,
     },
     environment,
     prefix,
+    revisionFile,
   };
 }
 
@@ -453,11 +505,21 @@ async function readText() {
   });
 }
 
+async function readRevision(config, { local = false } = {}) {
+  try {
+    const name = local ? config.revisionFile + '.local' : config.revisionFile;
+    const text = await fs.promises.readFile(name, 'utf8');
+    return Number.parseInt(text, 10) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function runHook(hookName, config, ...args) {
   if (typeof config.hooks[hookName] === 'function') {
     // eslint-disable-next-line no-await-in-loop
     await config.hooks[hookName](config, ...args);
-  } else if (typeof config.hooks[hookName] === 'string') {
+  } if (typeof config.hooks[hookName] === 'string') {
     let command = config.hooks[hookName];
     for (const [key, value] of Object.entries(config)) {
       command = command.replace(`{${key}}`, value);
@@ -529,6 +591,32 @@ async function writeKeyFile(keyPath, keys) {
 
 async function writeJson(filePath, data) {
   await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
+}
+
+async function writeRevision(
+  config,
+  value,
+  { local = true, primary = true } = {},
+) {
+  if (!config.revisionFile) {
+    return;
+  }
+
+  try {
+    const revision = value.toString();
+
+    if (primary) {
+      await fs.promises.writeFile(config.revisionFile, revision);
+    }
+
+    if (local) {
+      await fs.promises.writeFile(config.revisionFile + '.local', revision);
+    }
+
+    await runHook('writeRevision', config);
+  } catch {
+    // Skip for now
+  }
 }
 
 class SecryptError extends Error {}

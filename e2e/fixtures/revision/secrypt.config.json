@@ -1,0 +1,6 @@
+{
+  "files": {
+    "dev": ["secrets.json"]
+  },
+  "revisionFile": "secrypt.rev"
+}

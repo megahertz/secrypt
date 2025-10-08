@@ -19,7 +19,7 @@ describe('Skip encrypt files when they are unchanged', () => {
     // The second time, the encrypted file isn't changed
     expect(await runSecrypt(['encrypt'], options)).toEqual([
       'skip unchanged secrets.json',
-      '1 file encrypted successfully',
+      'no files were encrypted',
     ]);
 
     // Force encrypting the file
