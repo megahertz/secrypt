@@ -130,11 +130,13 @@ async function commandInit(config) {
     if (Object.keys(keys).length === 0) {
       logInfo(messages.pasteKeysOnInit);
       await commandKeysSet(config);
-      const files = await config.getFileListFn(config);
-      if (files.every(({ encrypted }) => encrypted.exists)) {
-        await commandDecrypt(config);
-      }
     }
+
+    const files = await config.getFileListFn(config);
+    if (files.every(({ encrypted }) => encrypted.exists)) {
+      await commandDecrypt(config);
+    }
+
     await runHook('alreadyInit', config);
     await runHook('postInit', config);
     return;
