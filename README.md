@@ -17,6 +17,7 @@ Key features:
   secrets.
 - No dependencies
 - Supports multiple environments with different secret keys.
+- Notify when local secrets are outdated (encrypted secrets changed remotely)
 
 Is it safe to keep encrypted credentials in the git repository? Well, this is a
 widely used approach at least in Ruby on Rails and in Fastlane.
@@ -93,7 +94,8 @@ Environment variables:
 
 A config can be stored in `secrypt.config.json`, `secrypt.config.js` or in the
 `secrypt` section of `package.json`. Also, you can specify a path to the config
-using `--config` command line option.
+using `--config` command line option. Simple options like `keyFile` or 
+`revisionFile` can be passed as command line options.
 
 ```json
 {
@@ -105,12 +107,20 @@ using `--config` command line option.
 ```
 
 ### Config options
+
+- `environment: string` - a name of the environment. By default, it is `dev`.
 - `files: Record<string, string[]>` - a list of files to encrypt/decrypt
+- `keyFile: string` - a path to a file with secret keys. By default, it is
+  `secrypt.keys`.
 - `keys: Record<string, string>` - a secret keys to use for 
   encryption/decryption. Not recommended to use in the config file.
   Use `SECRYPT_KEY` environment variable instead.
-- `keyFile: string` - a path to a file with secret keys. By default, it is
-  `secrypt.keys`.
+- `revisionFile: string` - a path to a file with a revision number. By default,
+  it is disabled. When it's defined, this file will be updated with the current
+  revision number after encryption. Next, `secrypt revision-check` checks
+  whether local unencrypted files should be updated.
+- `prefix: string` - a path to a directory where the secrets should be stored.
+  By default, it is the current working directory.
 
 ### Override default behavior
 - `decryptFn: (file: SecryptFile) => Promise<void>` - it could be used to
