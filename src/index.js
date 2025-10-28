@@ -22,6 +22,7 @@ module.exports = {
   getConfig,
   getFileList,
   isRevisionActual,
+  readKey,
   readKeyFile,
   readRevision,
   writeKeyFile,
@@ -181,9 +182,11 @@ async function commandHelp() {
     '  -p, --prefix PATH      Change current working directory',
     '',
     'Environment variables:',
-    '  SECRYPT_KEY    Set the key for encryption/decryption',
-    '  SECRYPT_PREFIX Set working directory path',
-    '  NODE_ENV       Set the environment name',
+    '  SECRYPT_KEY        Set the key for the current env',
+    '  SECRYPT_KEY_{ENV}  Set the key for the specified env (uppercased)',
+    '  SECRYPT_KEYS       Set the keys, the same format as in secrypt.keys',
+    '  SECRYPT_PREFIX     Set working directory path',
+    '  NODE_ENV           Set the current env name',
   ].join('\n'));
 }
 
@@ -371,6 +374,15 @@ async function getConfig({
     keys[environment === 'all' ? 'dev' : environment] = env.SECRYPT_KEY;
   }
 
+  if (env.SECRYPT_KEYS?.length > 3) {
+    Object.assign(keys, readKey(env.SECRYPT_KEYS));
+  }
+
+  Object.keys(fileConfig.files || {}).forEach((key) => {
+    const envSecret = env[`SECRYPT_KEY_${key.toUpperCase()}`];
+    keys[key] = envSecret || keys[key];
+  });
+
   return {
     decryptFn: decryptFile,
     encryptFn: encryptFile,
@@ -475,21 +487,24 @@ async function readFirstBytes(filePath, size) {
   return Buffer.concat(chunks);
 }
 
-async function readKeyFile(keyPath) {
+function readKey(content) {
   const result = {};
 
-  try {
-    const fileContents = await fs.promises.readFile(keyPath, 'utf8');
-    const lines = fileContents.split('\n').filter((line) => line.match(/^\w/i));
-    for (const line of lines) {
-      const [key, ...parts] = line.split(':').map((s) => s.trim());
-      result[key] = parts.join(':');
-    }
-  } catch (e) {
-    return undefined;
+  const lines = content.split('\n').filter((line) => line.match(/^\w/i));
+  for (const line of lines) {
+    const [key, ...parts] = line.split(':').map((s) => s.trim());
+    result[key] = parts.join(':');
   }
 
   return result;
+}
+
+async function readKeyFile(keyPath) {
+  try {
+    return readKey(await fs.promises.readFile(keyPath, 'utf8'));
+  } catch (e) {
+    return undefined;
+  }
 }
 
 async function readText() {

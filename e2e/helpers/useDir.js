@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { getConfig } = require('../../src');
 
 module.exports = useDir;
 
@@ -30,6 +31,12 @@ function useDir(dirPath) {
     async read(subPath) {
       return fs.promises.readFile(dir.join(subPath), 'utf8');
     },
+    async readDir(subPath = '', options = {}) {
+      return fs.promises.readdir(dir.join(subPath), options);
+    },
+    async readProjectConfig(projectSubPath = '') {
+      return getConfig({ cwd: dir.join(projectSubPath) });
+    },
     async readJson(subPath) {
       return JSON.parse(await dir.read(subPath));
     },
@@ -37,8 +44,24 @@ function useDir(dirPath) {
       const content = await dir.read(subPath);
       return content.split('\n').map((line) => line.trim());
     },
-    async rm(subPath) {
-      await fs.promises.rm(path.join(dir.path, subPath), { recursive: true });
+    async rm(subPath, { throwOnMissing = false, ...options } = {}) {
+      try {
+        await fs.promises.rm(dir.join(subPath), {
+          recursive: true,
+          ...options,
+        });
+      } catch (e) {
+        if (e.code !== 'ENOENT' || throwOnMissing) {
+          throw e;
+        }
+      }
+    },
+    async rmProjectDecryptedFiles(projectSubPath = '') {
+      const config = await dir.readProjectConfig(projectSubPath);
+      const files = Object.values(config.files).flat();
+      await Promise.all(
+        files.map((file) => dir.rm(file, { recursive: false })),
+      );
     },
     async write(subPath, content) {
       await fs.promises.writeFile(dir.join(subPath), content);

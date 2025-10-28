@@ -63,6 +63,7 @@ export function getConfig(options?: {
 }): Promise<SecryptConfig>;
 export function getFileList(config: SecryptConfig): Promise<SecryptFile[]>;
 export function isRevisionActual(config: SecryptConfig): Promise<boolean>;
+export function readKey(content: string): Record<string, string>;
 export function readKeyFile(filePath: string): Promise<Record<string, string>>;
 export function readRevision(
   config: SecryptConfig,
