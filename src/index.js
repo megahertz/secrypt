@@ -128,14 +128,15 @@ async function commandInit(config) {
 
   if (configPath) {
     logInfo(`Secrypt already initialized with config at ${configPath}`);
-    if (Object.keys(keys).length === 0) {
+    if (Object.values(keys).filter(Boolean).length === 0) {
       logInfo(messages.pasteKeysOnInit);
       await commandKeysSet(config);
     }
 
-    const files = await config.getFileListFn(config);
-    if (files.every(({ encrypted }) => encrypted.exists)) {
-      await commandDecrypt(config);
+    const decryptConfig = { ...config, allowEmptyFileList: true };
+    const files = await config.getFileListFn(decryptConfig);
+    if (files.length > 0 && files.every(({ encrypted }) => encrypted.exists)) {
+      await commandDecrypt(decryptConfig);
     }
 
     await runHook('alreadyInit', config);
@@ -270,7 +271,18 @@ async function decryptFile({ decrypted, encrypted, key }) {
   });
 
   const output = fs.createWriteStream(decrypted.full);
-  await stream.promises.pipeline(encryptedStream, decipher, output);
+
+  try {
+    await stream.promises.pipeline(encryptedStream, decipher, output);
+  } catch (e) {
+    if (e?.code === 'ERR_OSSL_BAD_DECRYPT') {
+      throw new Error(
+        `Wrong key. Can't decrypt ${encrypted.rel}. ${e.message}`,
+      );
+    }
+
+    throw e;
+  }
 }
 
 async function encryptFile({ decrypted, encrypted, key }) {
@@ -408,7 +420,7 @@ async function getConfig({
 }
 
 async function getFileList(config) {
-  const { environment, keys, prefix } = config;
+  const { allowEmptyFileList = false, environment, keys, prefix } = config;
 
   let list = [];
   for (const [env, envFiles] of Object.entries(config.files)) {
@@ -452,7 +464,7 @@ async function getFileList(config) {
     return true;
   });
 
-  if (list.length === 0) {
+  if (list.length === 0 && !allowEmptyFileList) {
     throw new SecryptError('No files to process found');
   }
 
