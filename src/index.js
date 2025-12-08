@@ -465,7 +465,16 @@ async function getFileList(config) {
   });
 
   if (list.length === 0 && !allowEmptyFileList) {
-    throw new SecryptError('No files to process found');
+    let reason;
+    if (Object.keys(keys).length === 0) {
+      reason = 'secret keys are not provided';
+    } else if (Object.keys(config.files).length === 0) {
+      reason = 'files option in config isn\'t set';
+    }
+
+    throw new SecryptError(
+      `No files to encrypt found${reason ? `: ${reason}` : ''}.`,
+    );
   }
 
   return list;
