@@ -609,18 +609,18 @@ async function wasChanged({ decrypted, encrypted, key }) {
       key,
     });
     const decryptedStream = fs.createReadStream(decrypted.full);
-    return !await streamsEqual(decryptedStream, encryptedStream.pipe(decipher));
+    const [decryptedHash, encryptedHash] = await Promise.all([
+      streamHash(decryptedStream),
+      streamHash(encryptedStream, decipher),
+    ]);
+    return decryptedHash !== encryptedHash;
   } catch (e) {
     return true;
   }
 
-  async function streamsEqual(streamA, streamB) {
-    return await streamHash(streamA) === await streamHash(streamB);
-  }
-
-  async function streamHash(readableStream) {
+  async function streamHash(...streams) {
     const hash = crypto.createHash('sha256');
-    await stream.promises.pipeline(readableStream, hash);
+    await stream.promises.pipeline(...streams, hash);
     return hash.digest('hex');
   }
 }
