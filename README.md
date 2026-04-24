@@ -85,9 +85,11 @@ Options:
   -p, --prefix PATH      Change current working directory
 
 Environment variables:
-  SECRYPT_KEY    Key for encryption/decryption for the current environment
-  SECRYPT_PREFIX Change current working directory
-  NODE_ENV       Environment name
+  SECRYPT_KEY        Key for encryption/decryption for the current environment
+  SECRYPT_KEY_{ENV}  Set the key for the specified env (uppercased)
+  SECRYPT_KEYS       Set the keys, the same format as in secrypt.keys
+  SECRYPT_PREFIX     Change current working directory
+  NODE_ENV           Environment name
 ```
 
 ## Configuration
